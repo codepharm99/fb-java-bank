@@ -13,7 +13,7 @@ public class Role {
     private Long id;
 
     @Column(nullable = false, unique = true, length = 50)
-    private String name; // EMPLOYEE, MANAGER, ADMIN
+    private String name; // USER, MANAGER, ADMIN
 
     @Column(length = 255)
     private String description;

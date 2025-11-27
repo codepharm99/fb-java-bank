@@ -44,9 +44,10 @@ java -jar target/banksys-0.0.1-SNAPSHOT.jar
 
 ## Данные по умолчанию
 `DataInitializer` создает роли и трёх сотрудников, если их ещё нет:
-- `employee1` / `password` — роли: EMPLOYEE
-- `manager1` / `password` — роли: EMPLOYEE, MANAGER
-- `admin1` / `admin` — роли: EMPLOYEE, MANAGER, ADMIN
+- `employee1` / `password` — роли: USER
+- `manager1` / `password` — роли: USER, MANAGER
+- `admin1` / `admin` — роли: USER, MANAGER, ADMIN
+- Дополнительно для тестов переводов/кредитов: `demo1` / `demo` и `demo2` / `demo` (роль USER)
 
 Токен генерируется в формате `mock-<id>` (см. `AuthTokenService`), где `<id>` — идентификатор сотрудника из базы.
 
@@ -80,9 +81,32 @@ java -jar target/banksys-0.0.1-SNAPSHOT.jar
     ```
   - Ответ 200 содержит `EmployeeDto`; при ошибке авторизации возвращается 401.
 
+- Демо-операции со счетами (ин_memory):
+  - `GET /api/accounts` — список демо-счетов с балансом и текущим кредитным долгом.
+  - `POST /api/accounts/transfer` — перевод между счетами:
+    ```json
+    {
+      "fromAccountId": 1,
+      "toAccountId": 2,
+      "amount": 5000,
+      "description": "Перевод на накопительный"
+    }
+    ```
+    При нехватке средств вернёт `409` с сообщением об ошибке.
+  - `POST /api/accounts/loan` — оформить кредит и зачислить сумму на счёт:
+    ```json
+    {
+      "accountId": 1,
+      "amount": 20000,
+      "termMonths": 12,
+      "rate": 0.12
+    }
+    ```
+    Сервис добавляет сумму на баланс и увеличивает долг на `amount * (1 + rate)`.
+
 ## Архитектура пакетов
-- `controller` — REST-эндпойнты (`AuthController`, `EmployeeController`)
-- `service` — сервис авторизации `AuthTokenService` (mock-токены)
+- `controller` — REST-эндпойнты (`AuthController`, `EmployeeController`, `AccountController`)
+- `service` — сервис авторизации `AuthTokenService` (mock-токены) и демо-логика по счетам/операциям `AccountDemoService`
 - `repository` — JPA-репозитории для `Employee` и `Role`
 - `model` — JPA-сущности `Employee`, `Role`
 - `dto` — объекты для ответов/запросов (`LoginRequest`, `LoginResponse`, `EmployeeDto`)

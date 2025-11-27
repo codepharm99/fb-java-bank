@@ -55,7 +55,8 @@ public class EmployeeController {
         return employeeRepository.findAll()
                 .stream()
                 .filter(emp -> !CollectionUtils.isEmpty(emp.getRoles())
-                        && emp.getRoles().stream().anyMatch(r -> "USER".equalsIgnoreCase(r.getName())))
+                        && emp.getRoles().stream().anyMatch(r ->
+                        "USER".equalsIgnoreCase(r.getName()) || "EMPLOYEE".equalsIgnoreCase(r.getName())))
                 .map(EmployeeMapper::toDto)
                 .collect(Collectors.toList());
     }

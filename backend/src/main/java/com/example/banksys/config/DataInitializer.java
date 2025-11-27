@@ -26,10 +26,17 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        Role employeeRole = roleRepository.findByName("EMPLOYEE")
-                .orElseGet(() -> roleRepository.save(
-                        new Role("EMPLOYEE", "Базовый сотрудник банка")
-                ));
+        Role userRole = roleRepository.findByName("USER")
+                .orElseGet(() -> roleRepository.findByName("EMPLOYEE")
+                        .map(existing -> {
+                            existing.setName("USER");
+                            existing.setDescription("Базовый пользователь (user)");
+                            return roleRepository.save(existing);
+                        })
+                        .orElseGet(() -> roleRepository.save(
+                                new Role("USER", "Базовый пользователь (user)")
+                        ))
+                );
 
         Role managerRole = roleRepository.findByName("MANAGER")
                 .orElseGet(() -> roleRepository.save(
@@ -41,33 +48,25 @@ public class DataInitializer implements CommandLineRunner {
                         new Role("ADMIN", "Управляющий/администратор системы")
                 ));
 
-        if (employeeRepository.findByUsername("employee1").isEmpty()) {
-            Employee emp = new Employee("Иван Сотрудник", "employee1", "password");
-            Set<Role> roles = new HashSet<>();
-            roles.add(employeeRole);
-            emp.setRoles(roles);
-            employeeRepository.save(emp);
-        }
-
-        if (employeeRepository.findByUsername("manager1").isEmpty()) {
-            Employee manager = new Employee("Мария Менеджер", "manager1", "password");
-            Set<Role> roles = new HashSet<>();
-            roles.add(employeeRole);
-            roles.add(managerRole);
-            manager.setRoles(roles);
-            employeeRepository.save(manager);
-        }
-
-        if (employeeRepository.findByUsername("admin1").isEmpty()) {
-            Employee admin = new Employee("Антон Управляющий", "admin1", "admin");
-            Set<Role> roles = new HashSet<>();
-            roles.add(employeeRole);
-            roles.add(managerRole);
-            roles.add(adminRole);
-            admin.setRoles(roles);
-            employeeRepository.save(admin);
-        }
+        createUserIfAbsent("Еркебулан", "employee1", "password", userRole);
+        createUserIfAbsent("Аслан", "manager1", "password", userRole, managerRole);
+        createUserIfAbsent("Магжан", "admin1", "admin", userRole, managerRole, adminRole);
+        createUserIfAbsent("Жанибек", "demo1", "demo", userRole);
+        createUserIfAbsent("Айбол", "demo2", "demo", userRole);
 
         System.out.println("Инициализация сотрудников и ролей завершена");
+    }
+
+    private void createUserIfAbsent(String fullName, String username, String password, Role... roles) {
+        if (employeeRepository.findByUsername(username).isPresent()) {
+            return;
+        }
+        Employee user = new Employee(fullName, username, password);
+        Set<Role> assigned = new HashSet<>();
+        for (Role role : roles) {
+            assigned.add(role);
+        }
+        user.setRoles(assigned);
+        employeeRepository.save(user);
     }
 }
