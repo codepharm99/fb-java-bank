@@ -1,12 +1,12 @@
 # Backend банковской системы
 
-Spring Boot-приложение для управления сотрудниками банка и ролями с простой (mock) аутентификацией для фронтенда. Данные хранятся в PostgreSQL, схема создается автоматически через JPA/Hibernate.
+Spring Boot‑приложение для учебного фронтенда: авторизация, сотрудники/роли, демо‑счета и простые операции (без настоящей безопасности). Данные лежат в PostgreSQL, схема создаётся JPA/Hibernate.
 
 ## Технический стек
-- Java 25 (см. `java.version` в `pom.xml`; если у вас установлен другой JDK, поменяйте значение или используйте совместимую версию)
+- Java 25
 - Spring Boot 4.0.0 (Web MVC, Data JPA)
-- PostgreSQL (JDBC driver в зависимостях)
-- Maven Wrapper (`./mvnw`) для сборки и запуска
+- PostgreSQL
+- Maven Wrapper (`./mvnw`)
 
 ## Требования
 - Установленный JDK (рекомендуется 21+; проект сейчас настроен на 25)
@@ -43,66 +43,43 @@ java -jar target/banksys-0.0.1-SNAPSHOT.jar
 Приложение поднимется на `http://localhost:8080`.
 
 ## Данные по умолчанию
-`DataInitializer` создает роли и трёх сотрудников, если их ещё нет:
-- `employee1` / `password` — роли: USER
-- `manager1` / `password` — роли: USER, MANAGER
-- `admin1` / `admin` — роли: USER, MANAGER, ADMIN
-- Дополнительно для тестов переводов/кредитов: `demo1` / `demo` и `demo2` / `demo` (роль USER)
+`DataInitializer` создаёт роли и пользователей, если их нет:
+- `employee1` / `password` — USER
+- `manager1` / `password` — USER, MANAGER
+- `admin1` / `admin` — USER, MANAGER, ADMIN
+- `demo1` / `demo`, `demo2` / `demo` — USER
 
-Токен генерируется в формате `mock-<id>` (см. `AuthTokenService`), где `<id>` — идентификатор сотрудника из базы.
+Имена: Еркебулан, Аслан, Магжан, Жанибек, Айбол. Токен — строка `mock-<id>`.
 
-## API
-- `POST /api/auth/login` — логин по `username`/`password`
-  - Пример запроса:
-    ```bash
-    curl -X POST http://localhost:8080/api/auth/login \
-      -H "Content-Type: application/json" \
-      -d '{"username":"employee1","password":"password"}'
-    ```
-  - Успешный ответ:
-    ```json
-    {
-      "token": "mock-1",
-      "employee": {
-        "id": 1,
-        "fullName": "Иван Сотрудник",
-        "username": "employee1",
-        "roles": ["EMPLOYEE"]
-      }
-    }
-    ```
+Для **каждого пользователя** при старте создаётся один KZT‑счёт (баланс/долг зависят от логина). Счёты хранятся в памяти, пересоздаются при рестарте.
 
-- `GET /api/employees/me` — получение профиля текущего сотрудника
-  - Заголовок: `Authorization: Bearer mock-<id>`
-  - Пример:
-    ```bash
-    curl http://localhost:8080/api/employees/me \
-      -H "Authorization: Bearer mock-1"
-    ```
-  - Ответ 200 содержит `EmployeeDto`; при ошибке авторизации возвращается 401.
+## API (основное)
+- `POST /api/auth/login` — логин `username`/`password`, ответ: `token` + `employee`.
+- `GET /api/employees/me` — профиль по заголовку `Authorization: Bearer mock-<id>`.
+- `GET /api/employees/users` — список всех сотрудников (для подсказок получателей).
 
-- Демо-операции со счетами (ин_memory):
-  - `GET /api/accounts` — список демо-счетов с балансом и текущим кредитным долгом.
-  - `POST /api/accounts/transfer` — перевод между счетами:
-    ```json
-    {
-      "fromAccountId": 1,
-      "toAccountId": 2,
-      "amount": 5000,
-      "description": "Перевод на накопительный"
-    }
-    ```
-    При нехватке средств вернёт `409` с сообщением об ошибке.
-  - `POST /api/accounts/loan` — оформить кредит и зачислить сумму на счёт:
-    ```json
-    {
-      "accountId": 1,
-      "amount": 20000,
-      "termMonths": 12,
-      "rate": 0.12
-    }
-    ```
-    Сервис добавляет сумму на баланс и увеличивает долг на `amount * (1 + rate)`.
+### Демо-счета и операции (in‑memory)
+- `GET /api/accounts` — список счетов (для обычного USER фронт фильтрует только свой счёт).
+- `POST /api/accounts/transfer/by-user` — перевод по логинам:
+  ```json
+  {
+    "fromUsername": "demo1",
+    "toUsername": "demo2",
+    "amount": 5000,
+    "description": "Тест перевод"
+  }
+  ```
+  Ответ 200: `TransferResponse` с обновлёнными счетами. При нехватке средств — 409.  
+  **Ограничение:** переводы заблокированы для ролей ADMIN, MANAGER, EMPLOYEE (будет 409 с сообщением).
+
+- `POST /api/accounts/loan` — оформить кредит на счёт:
+  ```json
+  { "accountId": 1, "amount": 20000, "termMonths": 12, "rate": 0.12 }
+  ```
+  Баланс пополняется на `amount`, долг растёт на `amount * (1 + rate)`.  
+  **Ограничение:** кредиты недоступны для ADMIN/MANAGER/EMPLOYEE (409 с сообщением).
+
+- `GET /api/accounts/transfers?user=<username>` — история переводов/кредитов (фильтр по пользователю или весь журнал).
 
 ## Архитектура пакетов
 - `controller` — REST-эндпойнты (`AuthController`, `EmployeeController`, `AccountController`)
@@ -114,10 +91,11 @@ java -jar target/banksys-0.0.1-SNAPSHOT.jar
 - `config` — `DataInitializer` с начальными ролями/пользователями
 
 ## Особенности и ограничения
-- Пароли хранятся в открытом виде; шифрование и полноценная безопасность (JWT, сессии, фильтры) не реализованы.
-- Токены — простая строка `mock-<id>` без истечения срока действия и без проверок ролей.
-- CORS открыт для всех доменов (`@CrossOrigin(origins = "*")`) для удобства фронтенда.
-- Нет автоматических тестов; при необходимости добавьте модульные тесты к контроллерам/сервисам.
+- Балансы/счета/история — только в памяти; при рестарте пересоздаются.
+- Пароли в открытом виде, токен mock без срока действия.
+- CORS открыт для всех доменов.
+- Переводы/кредиты разрешены только роль USER; остальные роли увидят ошибку.
+- Нет автоматических тестов.
 
 ## Полезные команды
 - `./mvnw spring-boot:run` — запуск приложения
