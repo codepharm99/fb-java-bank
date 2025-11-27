@@ -124,7 +124,7 @@ public class AccountDemoService {
                 account.getOwnerUsername(),
                 amount,
                 account.getCurrency(),
-                "Кредит: " + Optional.ofNullable(request.getDescription()).orElse("пополнение по кредиту"),
+                "Кредит: пополнение по кредиту",
                 LocalDateTime.now()
         ));
 
