@@ -5,11 +5,14 @@ import com.example.banksys.mapper.EmployeeMapper;
 import com.example.banksys.model.Employee;
 import com.example.banksys.repository.EmployeeRepository;
 import com.example.banksys.service.AuthTokenService;
+import org.springframework.util.CollectionUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/employees")
@@ -45,5 +48,15 @@ public class EmployeeController {
 
         EmployeeDto dto = EmployeeMapper.toDto(optionalEmployee.get());
         return ResponseEntity.ok(dto);
+    }
+
+    @GetMapping("/users")
+    public List<EmployeeDto> listUsers() {
+        return employeeRepository.findAll()
+                .stream()
+                .filter(emp -> !CollectionUtils.isEmpty(emp.getRoles())
+                        && emp.getRoles().stream().anyMatch(r -> "USER".equalsIgnoreCase(r.getName())))
+                .map(EmployeeMapper::toDto)
+                .collect(Collectors.toList());
     }
 }
