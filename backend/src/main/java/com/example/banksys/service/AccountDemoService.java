@@ -7,6 +7,8 @@ import com.example.banksys.dto.TransferRequest;
 import com.example.banksys.dto.TransferResponse;
 import com.example.banksys.dto.TransferByUserRequest;
 import com.example.banksys.dto.TransferHistoryItem;
+import com.example.banksys.model.Employee;
+import com.example.banksys.repository.EmployeeRepository;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
 
@@ -25,21 +27,32 @@ import java.util.concurrent.atomic.AtomicLong;
 @Service
 public class AccountDemoService {
 
+    private final EmployeeRepository employeeRepository;
     private final Map<Long, Account> accounts = new ConcurrentHashMap<>();
     private final Map<String, Long> userAccounts = new ConcurrentHashMap<>();
     private final List<TransferHistoryItem> history = Collections.synchronizedList(new ArrayList<>());
     private final AtomicLong idSequence = new AtomicLong(1);
+
+    public AccountDemoService(EmployeeRepository employeeRepository) {
+        this.employeeRepository = employeeRepository;
+    }
 
     @PostConstruct
     public void seedDemoAccounts() {
         if (!accounts.isEmpty()) {
             return;
         }
-        addAccountForUser("employee1", "Основной счёт", "KZT", new BigDecimal("750000.00"), BigDecimal.ZERO);
-        addAccountForUser("manager1", "Основной счёт", "KZT", new BigDecimal("820000.50"), new BigDecimal("60000.00"));
-        addAccountForUser("admin1", "Основной счёт", "KZT", new BigDecimal("1250000.00"), BigDecimal.ZERO);
-        addAccountForUser("demo1", "Основной счёт", "KZT", new BigDecimal("350000.00"), BigDecimal.ZERO);
-        addAccountForUser("demo2", "Основной счёт", "KZT", new BigDecimal("270000.00"), new BigDecimal("15000.00"));
+        List<Employee> employees = employeeRepository.findAll();
+        if (employees.isEmpty()) {
+            return;
+        }
+
+        for (Employee emp : employees) {
+            String username = emp.getUsername();
+            BigDecimal balance = seedBalance(username);
+            BigDecimal debt = seedDebt(username);
+            addAccountForUser(username, "Основной счёт", "KZT", balance, debt);
+        }
     }
 
     public List<AccountDto> getAccounts() {
@@ -243,6 +256,25 @@ public class AccountDemoService {
                 normalize(account.getLoanDebt()),
                 account.getOwnerUsername()
         );
+    }
+
+    private BigDecimal seedBalance(String username) {
+        return switch (username) {
+            case "admin1" -> new BigDecimal("1250000.00");
+            case "manager1" -> new BigDecimal("820000.50");
+            case "employee1" -> new BigDecimal("750000.00");
+            case "demo1" -> new BigDecimal("350000.00");
+            case "demo2" -> new BigDecimal("270000.00");
+            default -> new BigDecimal("500000.00");
+        };
+    }
+
+    private BigDecimal seedDebt(String username) {
+        return switch (username) {
+            case "manager1" -> new BigDecimal("60000.00");
+            case "demo2" -> new BigDecimal("15000.00");
+            default -> BigDecimal.ZERO;
+        };
     }
 
     private BigDecimal normalize(BigDecimal value) {
