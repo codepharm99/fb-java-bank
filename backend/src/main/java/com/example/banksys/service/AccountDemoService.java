@@ -39,9 +39,11 @@ public class AccountDemoService {
 
     @PostConstruct
     public void seedDemoAccounts() {
-        if (!accounts.isEmpty()) {
-            return;
-        }
+        accounts.clear();
+        userAccounts.clear();
+        history.clear();
+        idSequence.set(1);
+
         List<Employee> employees = employeeRepository.findAll();
         if (employees.isEmpty()) {
             return;
@@ -67,6 +69,10 @@ public class AccountDemoService {
         validateTransfer(request);
         Account from = requireAccount(request.getFromAccountId());
         Account to = requireAccount(request.getToAccountId());
+
+        if (isBlockedRole(from.getOwnerUsername())) {
+            throw new IllegalStateException("Переводы недоступны для этой роли");
+        }
 
         BigDecimal amount = normalize(request.getAmount());
         if (from.getBalance().compareTo(amount) < 0) {
@@ -98,6 +104,10 @@ public class AccountDemoService {
         Account from = requireAccountByUsername(request.getFromUsername());
         Account to = requireAccountByUsername(request.getToUsername());
 
+        if (isBlockedRole(from.getOwnerUsername())) {
+            throw new IllegalStateException("Переводы недоступны для этой роли");
+        }
+
         TransferRequest converted = new TransferRequest();
         converted.setFromAccountId(from.getId());
         converted.setToAccountId(to.getId());
@@ -109,6 +119,10 @@ public class AccountDemoService {
     public synchronized LoanResponse takeLoan(LoanRequest request) {
         validateLoan(request);
         Account account = requireAccount(request.getAccountId());
+
+        if (isBlockedRole(account.getOwnerUsername())) {
+            throw new IllegalStateException("Кредит недоступен для этой роли");
+        }
 
         BigDecimal amount = normalize(request.getAmount());
         int term = Optional.ofNullable(request.getTermMonths()).orElse(12);
@@ -287,6 +301,19 @@ public class AccountDemoService {
     private String generateAccountNumber() {
         long id = idSequence.get();
         return String.format("KZ%018d", id);
+    }
+
+    private boolean isBlockedRole(String username) {
+        if (username == null) {
+            return true;
+        }
+        return employeeRepository.findByUsername(username)
+                .map(Employee::getRoles)
+                .map(roles -> roles.stream().anyMatch(r ->
+                        "ADMIN".equalsIgnoreCase(r.getName())
+                                || "MANAGER".equalsIgnoreCase(r.getName())
+                                || "EMPLOYEE".equalsIgnoreCase(r.getName())))
+                .orElse(true);
     }
 
     private static class Account {
