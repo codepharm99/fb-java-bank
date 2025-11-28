@@ -1,5 +1,4 @@
 package com.example.banksys.controller;
-
 import com.example.banksys.dto.EmployeeDto;
 import com.example.banksys.dto.LoginRequest;
 import com.example.banksys.dto.LoginResponse;
@@ -12,10 +11,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
-
+// /api/auth/login endpoint auth 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "*") // на время разработки, чтобы Next.js спокойно ходил
+@CrossOrigin(origins = "*") // на время разработки
 public class AuthController {
 
     private final EmployeeRepository employeeRepository;
